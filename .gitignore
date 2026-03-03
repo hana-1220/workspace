@@ -9,3 +9,5 @@ pdf_pages/*.png
 input/*.pdf
 input/*.png
 input/*.jpg
+.cats_last_check.json
+cats_cv_notify.log

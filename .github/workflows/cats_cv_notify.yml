@@ -1,0 +1,35 @@
+name: CATs CV Notify
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # 5分ごとに実行
+  workflow_dispatch: {}     # 手動実行も可能
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Restore state
+        uses: actions/cache@v4
+        with:
+          path: .cats_last_check.json
+          key: cats-cv-state-${{ github.run_id }}
+          restore-keys: cats-cv-state-
+
+      - name: Run CV check loop
+        env:
+          CATS_LOGIN_ID: ${{ secrets.CATS_LOGIN_ID }}
+          CATS_PASSWORD: ${{ secrets.CATS_PASSWORD }}
+          CHATWORK_API_TOKEN: ${{ secrets.CHATWORK_API_TOKEN }}
+          CHATWORK_ROOM_ID: ${{ secrets.CHATWORK_ROOM_ID }}
+        run: python cats_cv_notify_ci.py
