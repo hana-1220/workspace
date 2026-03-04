@@ -90,9 +90,19 @@ def send_chatwork_message(message: str) -> bool:
 def format_cv_message(records: List[Dict[str, Any]]) -> str:
     messages = []
     for r in records:
+        action = r.get('actionDate', '-')
+        click = r.get('clickDate', '')
+        flag = ""
+        try:
+            dt_click = datetime.datetime.strptime(click, "%Y-%m-%d %H:%M:%S")
+            dt_action = datetime.datetime.strptime(action, "%Y-%m-%d %H:%M:%S")
+            if (dt_action - dt_click).total_seconds() >= 12 * 3600:
+                flag = "(❌)"
+        except (ValueError, TypeError):
+            pass
         messages.append(
             f"[info][title]新規CV通知【CATs】[/title]"
-            f"\\ CVがつきました‼️🎉 /　{r.get('actionDate', '-')}\n"
+            f"\\ CVがつきました‼️🎉 /　{action}{flag}\n"
             f"・ 媒体: {r.get('partnerName', '-')}\n"
             f"・ 広告主: {r.get('companyName', '-')}[/info]"
         )
