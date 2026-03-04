@@ -1,16 +1,16 @@
 # workspace
 
-Chatwork連携の業務自動化ツール群
+Discord連携の業務自動化ツール群
 
 ## 1. CATs CV通知 + CV検索Bot
 
-CATsプラットフォームの成果ログを監視し、新規CVをChatworkに即時通知。
-Chatworkからの検索リクエストにも自動応答する。
+CATsプラットフォームの成果ログを監視し、新規CVをDiscordに即時通知。
+Discordからの検索リクエストにも自動応答する。
 
 ### 機能
 
-- **CV即時通知**: 30秒間隔で成果ログをチェック、新規CVをChatworkに通知
-- **CV検索応答**: Chatworkにテンプレートを投稿すると検索結果を自動返信
+- **CV即時通知**: 30秒間隔で成果ログをチェック、新規CVをDiscordに通知
+- **CV検索応答**: Discordにテンプレートを投稿すると検索結果を自動返信
 - **12時間フラグ**: クリック→成果が12時間以上空いている場合は(❌)を表示
 
 ### 検索テンプレート
@@ -39,7 +39,7 @@ python3 cats_cv_notify.py test
 
 `.github/workflows/cats_cv_notify.yml` で1分間隔で自動実行（PC閉じていても動作）。
 
-必要なSecrets: `CATS_LOGIN_ID`, `CATS_PASSWORD`, `CHATWORK_API_TOKEN`, `CHATWORK_ROOM_ID`
+必要なSecrets: `CATS_LOGIN_ID`, `CATS_PASSWORD`, `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID`
 
 ---
 
