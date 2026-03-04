@@ -37,7 +37,7 @@ python3 cats_cv_notify.py test
 
 ### GitHub Actions（PC閉じていても動作）
 
-`.github/workflows/cats_cv_notify.yml` で2分間隔で自動実行。
+`.github/workflows/cats_cv_notify.yml` で1分間隔で自動実行（PC閉じていても動作）。
 
 必要なSecrets: `CATS_LOGIN_ID`, `CATS_PASSWORD`, `CHATWORK_API_TOKEN`, `CHATWORK_ROOM_ID`
 
