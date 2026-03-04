@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cats-cv-notify
+    runtime: python
+    buildCommand: pip install requests python-dotenv
+    startCommand: python cats_cv_notify_server.py
+    envVars:
+      - key: CATS_LOGIN_ID
+        sync: false
+      - key: CATS_PASSWORD
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DISCORD_CHANNEL_ID
+        sync: false
+    plan: free
+    healthCheckPath: /
