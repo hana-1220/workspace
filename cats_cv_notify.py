@@ -171,11 +171,20 @@ def format_search_result(records: List[Dict[str, Any]], query: Dict[str, str]) -
         num = CIRCLED_NUMS[i] if i < len(CIRCLED_NUMS) else f"({i+1})"
         click = r.get("clickDate", "-")
         action = r.get("actionDate", "-")
+        # クリック→成果が12時間以上なら❌
+        flag = ""
+        try:
+            dt_click = datetime.datetime.strptime(click, "%Y-%m-%d %H:%M:%S")
+            dt_action = datetime.datetime.strptime(action, "%Y-%m-%d %H:%M:%S")
+            if (dt_action - dt_click).total_seconds() >= 12 * 3600:
+                flag = "❌"
+        except (ValueError, TypeError):
+            pass
         if query["type"] == "project":
             media = r.get("partnerName", "-")
-            lines.append(f"{num}【媒体】{media}\n　【クリック】{click}【成果】{action}")
+            lines.append(f"{num}【媒体】{media}\n　【クリック】{click}【成果】{action}{flag}")
         else:
-            lines.append(f"{num}【クリック】{click}【成果】{action}")
+            lines.append(f"{num}【クリック】{click}【成果】{action}{flag}")
     lines.append("[/info]")
     return "\n".join(lines)
 
