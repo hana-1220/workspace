@@ -169,7 +169,11 @@ def format_search_result(records: List[Dict[str, Any]], query: Dict[str, str]) -
         num = CIRCLED_NUMS[i] if i < len(CIRCLED_NUMS) else f"({i+1})"
         click = r.get("clickDate", "-")
         action = r.get("actionDate", "-")
-        lines.append(f"{num}【クリック】{click}【成果】{action}")
+        if query["type"] == "project":
+            media = r.get("partnerName", "-")
+            lines.append(f"{num}【媒体】{media}\n　【クリック】{click}【成果】{action}")
+        else:
+            lines.append(f"{num}【クリック】{click}【成果】{action}")
     lines.append("[/info]")
     return "\n".join(lines)
 
