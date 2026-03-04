@@ -154,12 +154,14 @@ def parse_search_query(body: str) -> Optional[Dict[str, str]]:
 
 def format_search_result(records: List[Dict[str, Any]], query: Dict[str, str]) -> str:
     """CV検索結果をフォーマット"""
-    # フィルタ（正規化して比較）
+    # フィルタ（正規化して比較、partnerName と companyName 両方を検索）
     q = normalize_text(query["query"])
     if query["type"] == "media":
         filtered = [r for r in records if q in normalize_text(r.get("partnerName", ""))]
     else:
-        filtered = [r for r in records if q in normalize_text(r.get("companyName", ""))]
+        filtered = [r for r in records
+                    if q in normalize_text(r.get("companyName", ""))
+                    or q in normalize_text(r.get("partnerName", ""))]
 
     if not filtered:
         return f"[info][title]CV検索結果[/title]「{query['query']}」のCVは【0】件です。[/info]"
