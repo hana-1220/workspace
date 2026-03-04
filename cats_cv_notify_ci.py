@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-CATs CV通知 → Chatwork（GitHub Actions用）
+CATs CV通知 + CV検索応答 → Chatwork（GitHub Actions用）
 5分ごとに起動し、4分半の間30秒おきにチェックする
 """
 
 import os
+import re
 import json
 import time
 import datetime
 import requests
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set
 
 # ===== 設定（環境変数から取得） =====
 CATS_LOGIN_URL = "https://admin.deneb.tokyo/front/login/confirm"
@@ -25,6 +26,16 @@ CHECK_INTERVAL = 30   # 30秒
 RUN_DURATION = 270    # 4分30秒（5分のcronに収まるように）
 
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cats_last_check.json")
+
+CIRCLED_NUMS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
+
+
+def normalize_text(text: str) -> str:
+    """&/＆/&amp; やHTMLエンティティを正規化して比較用テキストを返す"""
+    import html
+    text = html.unescape(text)
+    text = text.replace("＆", "&")
+    return text
 
 
 def cats_login(session: requests.Session) -> bool:
@@ -88,11 +99,111 @@ def format_cv_message(records: List[Dict[str, Any]]) -> str:
     return "\n".join(messages)
 
 
+# ===== CV検索応答 =====
+
+def fetch_chatwork_messages() -> List[Dict[str, Any]]:
+    """Chatworkの最新メッセージを取得"""
+    resp = requests.get(
+        CHATWORK_API_URL,
+        headers={"X-ChatWorkToken": CHATWORK_API_TOKEN},
+        params={"force": "1"},
+        timeout=10,
+    )
+    if resp.status_code == 200:
+        return resp.json()
+    if resp.status_code == 204:
+        return []
+    print(f"[ERROR] Chatworkメッセージ取得失敗: {resp.status_code}")
+    return []
+
+
+def parse_search_query(body: str) -> Optional[Dict[str, str]]:
+    """検索テンプレートをパース
+    【期間】2026-03-03 00:00:00▶︎2026-03-03 23:59:59
+    【媒体】乳酸菌&イチョウ葉の恵み_DN01(mw成果_rete)
+    """
+    period_match = re.search(
+        r'【期間】(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}:\d{2}\s*\S+\s*(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}:\d{2}',
+        body
+    )
+    if not period_match:
+        return None
+
+    start_date = period_match.group(1).replace('-', '/')
+    end_date = period_match.group(2).replace('-', '/')
+
+    media_match = re.search(r'【媒体】(.+)', body)
+    project_match = re.search(r'【案件】(.+)', body)
+
+    if media_match:
+        return {
+            "type": "media",
+            "date_str": f"{start_date} - {end_date}",
+            "query": media_match.group(1).strip(),
+        }
+    if project_match:
+        return {
+            "type": "project",
+            "date_str": f"{start_date} - {end_date}",
+            "query": project_match.group(1).strip(),
+        }
+    return None
+
+
+def format_search_result(records: List[Dict[str, Any]], query: Dict[str, str]) -> str:
+    """CV検索結果をフォーマット"""
+    # フィルタ（正規化して比較）
+    q = normalize_text(query["query"])
+    if query["type"] == "media":
+        filtered = [r for r in records if q in normalize_text(r.get("partnerName", ""))]
+    else:
+        filtered = [r for r in records if q in normalize_text(r.get("companyName", ""))]
+
+    if not filtered:
+        return f"[info][title]CV検索結果[/title]「{query['query']}」のCVは【0】件です。[/info]"
+
+    lines = [f"[info][title]CV検索結果[/title]この期間のCVは【{len(filtered)}】件です。\n---"]
+    for i, r in enumerate(filtered):
+        num = CIRCLED_NUMS[i] if i < len(CIRCLED_NUMS) else f"({i+1})"
+        click = r.get("clickDate", "-")
+        action = r.get("actionDate", "-")
+        lines.append(f"{num}【クリック】{click}【成果】{action}")
+    lines.append("[/info]")
+    return "\n".join(lines)
+
+
+def check_search_queries(session: requests.Session, responded_ids: Set[str]) -> Set[str]:
+    """Chatworkの検索リクエストに応答"""
+    messages = fetch_chatwork_messages()
+    if not messages:
+        return responded_ids
+
+    for msg in messages:
+        mid = str(msg.get("message_id", ""))
+        if mid in responded_ids:
+            continue
+
+        body = msg.get("body", "")
+        query = parse_search_query(body)
+        if query is None:
+            continue
+
+        print(f"[SEARCH] 検索リクエスト検出: {query['type']}={query['query']}")
+        records = fetch_cv_logs(session, query["date_str"])
+        result = format_search_result(records, query)
+        send_chatwork_message(result)
+        responded_ids.add(mid)
+
+    return responded_ids
+
+
+# ===== 状態管理 =====
+
 def load_state() -> Dict[str, Any]:
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, "r") as f:
             return json.load(f)
-    return {"seen_ids": []}
+    return {"seen_ids": [], "responded_msg_ids": []}
 
 
 def save_state(state: Dict[str, Any]) -> None:
@@ -104,7 +215,7 @@ def make_record_id(r: Dict[str, Any]) -> str:
     return f"{r.get('actionDate', '')}_{r.get('sessionId', '')}_{r.get('partnerName', '')}"
 
 
-def check_and_notify(session: requests.Session, seen_ids: set) -> set:
+def check_and_notify(session: requests.Session, seen_ids: Set[str]) -> Set[str]:
     now = datetime.datetime.now().strftime("%H:%M:%S")
     records = fetch_cv_logs(session)
 
@@ -137,7 +248,7 @@ def check_and_notify(session: requests.Session, seen_ids: set) -> set:
 
 def main():
     print("=" * 50)
-    print("CATs CV即時通知（GitHub Actions）")
+    print("CATs CV即時通知 + 検索応答（GitHub Actions）")
     print("=" * 50)
 
     session = requests.Session()
@@ -151,6 +262,7 @@ def main():
     # 前回の状態を復元
     state = load_state()
     seen_ids = set(state.get("seen_ids", []))
+    responded_ids = set(state.get("responded_msg_ids", []))
 
     # 初回起動時（stateが空）は既存データを既読にする
     if not seen_ids:
@@ -160,16 +272,31 @@ def main():
                 seen_ids.add(make_record_id(r))
             print(f"[INIT] 既存CV {len(records)}件を既読化")
 
+    # 初回起動時は既存の検索リクエストをスキップ
+    if not responded_ids:
+        messages = fetch_chatwork_messages()
+        for msg in messages:
+            mid = str(msg.get("message_id", ""))
+            body = msg.get("body", "")
+            if parse_search_query(body) is not None:
+                responded_ids.add(mid)
+        if responded_ids:
+            print(f"[INIT] 既存検索リクエスト {len(responded_ids)}件をスキップ")
+
     # 4分30秒間ループ
     start = time.time()
     while time.time() - start < RUN_DURATION:
         try:
             seen_ids = check_and_notify(session, seen_ids)
+            responded_ids = check_search_queries(session, responded_ids)
         except Exception as e:
             print(f"[ERROR] {e}")
 
         # 状態を毎回保存（中断に備えて）
-        save_state({"seen_ids": list(seen_ids)[-500:]})
+        save_state({
+            "seen_ids": list(seen_ids)[-500:],
+            "responded_msg_ids": list(responded_ids)[-200:],
+        })
 
         remaining = RUN_DURATION - (time.time() - start)
         if remaining > CHECK_INTERVAL:
