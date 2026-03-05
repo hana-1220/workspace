@@ -1,19 +1,14 @@
 # workspace
 
-Discord連携の業務自動化ツール群
+CATs CV通知 + CV検索Bot — Discord連携
 
-## 1. CATs CV通知 + CV検索Bot
-
-CATsプラットフォームの成果ログを監視し、新規CVをDiscordに即時通知。
-Discordからの検索リクエストにも自動応答する。
-
-### 機能
+## 機能
 
 - **CV即時通知**: 30秒間隔で成果ログをチェック、新規CVをDiscordに通知
 - **CV検索応答**: Discordにテンプレートを投稿すると検索結果を自動返信
 - **12時間フラグ**: クリック→成果が12時間以上空いている場合は(❌)を表示
 
-### 検索テンプレート
+## 検索テンプレート
 
 ```
 【媒体ごと】
@@ -25,10 +20,11 @@ Discordからの検索リクエストにも自動応答する。
 【案件】乳酸菌&イチョウ葉の恵み
 ```
 
-### 実行方法
+## 実行方法
+
+### ローカル実行（PC起動中、30秒間隔）
 
 ```bash
-# ローカル実行（PC起動中、30秒間隔）
 python3 cats_cv_notify.py loop
 
 # テスト（1回だけ実行）
@@ -38,7 +34,7 @@ python3 cats_cv_notify.py test
 ### GitHub Actions（PC閉じていても動作）
 
 `.github/workflows/cats_cv_notify.yml` で5分間隔でスケジュール実行。
-各実行は270秒間、20秒おきにチェック（PC閉じていても動作）。
+各実行は270秒間、20秒おきにチェック。
 
 必要なSecrets: `CATS_LOGIN_ID`, `CATS_PASSWORD`, `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID`
 
@@ -54,29 +50,24 @@ python3 cats_cv_notify.py test
 # 3. 環境変数を設定して Apply
 ```
 
----
+## ファイル構成
 
-## 2. ヒートマップ分析システム
-
-SquadBeyondのヒートマップスクリーンショットをClaude Vision APIで分析し、Excelレポートを自動生成。
-
-### 機能
-
-- Claude Vision APIによるヒートマップ画像分析
-- ブロック別のExcelレポート生成（滞在時間・離脱率・改善優先度）
-- Chatwork Webhook連携（画像投稿→自動分析→CSV返信）
-
-### 実行方法
-
-```bash
-# ローカル画像を分析
-python -m src.cli analyze image1.png image2.png
-
-# Chatwork監視モード
-python -m src.cli watch --interval 30
-
-# Webhookサーバー
-python -m src.server
+```
+├── cats_cv_notify.py          # ローカル実行用（30秒ループ）
+├── cats_cv_notify_ci.py       # GitHub Actions用（270秒実行）
+├── cats_cv_notify_server.py   # Render用（HTTP + バックグラウンドループ）
+├── render.yaml                # Render Blueprint
+├── .github/workflows/
+│   └── cats_cv_notify.yml     # GitHub Actions ワークフロー
+├── requirements.txt
+└── .env                       # 環境変数（git管理外）
 ```
 
-詳細は [CLAUDE.md](CLAUDE.md) を参照。
+## 環境変数
+
+```
+CATS_LOGIN_ID=       # CATs ログインID
+CATS_PASSWORD=       # CATs パスワード
+DISCORD_BOT_TOKEN=   # Discord Bot トークン
+DISCORD_CHANNEL_ID=  # Discord チャンネルID
+```
