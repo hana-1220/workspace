@@ -37,9 +37,22 @@ python3 cats_cv_notify.py test
 
 ### GitHub Actions（PC閉じていても動作）
 
-`.github/workflows/cats_cv_notify.yml` で1分間隔で自動実行（PC閉じていても動作）。
+`.github/workflows/cats_cv_notify.yml` で5分間隔でスケジュール実行。
+各実行は270秒間、20秒おきにチェック（PC閉じていても動作）。
 
 必要なSecrets: `CATS_LOGIN_ID`, `CATS_PASSWORD`, `DISCORD_BOT_TOKEN`, `DISCORD_CHANNEL_ID`
+
+### Render デプロイ（24時間常時稼働）
+
+`render.yaml` のBlueprintで無料Webサービスとしてデプロイ可能。
+バックグラウンドスレッドでCV通知ループを実行し、ヘルスチェック用HTTPサーバーを提供。
+
+```bash
+# Renderデプロイ手順
+# 1. render.com でアカウント作成（GitHub連携）
+# 2. New → Blueprint → hana-1220/workspace を接続
+# 3. 環境変数を設定して Apply
+```
 
 ---
 
